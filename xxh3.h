@@ -779,8 +779,19 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
-
+                    if (len > 128) {
+                        if (len > 384) {
+                            return XXH3_hashLong_64b(data, len, seed);
+                        }
+                        {   size_t const nbStripes = len / 16;
+                            size_t sn;
+                            for (sn=0; sn < nbStripes; sn++) {
+                                acc += XXH3_mix16B(p + sn*16, key + ((sn*16) & 127), seed);
+                            }
+                            acc += XXH3_mix16B(p + len - 16, key + KEYSET_DEFAULT_SIZE - 16, seed);
+                            return XXH3_avalanche(acc);
+                        }
+                    }
                     acc += XXH3_mix16B(p+48, key+96, seed);
                     acc += XXH3_mix16B(p+len-64, key+112, seed);
                 }
