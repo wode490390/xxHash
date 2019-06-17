@@ -765,60 +765,6 @@ XXH3_hashLong_internal(const void* restrict data, size_t len,
 }
 
 
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_defaultSecret(const void* restrict data, size_t len)
-{
-    return XXH3_hashLong_internal(data, len, kSecret, sizeof(kSecret));
-}
-
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_withSecret(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
-{
-    return XXH3_hashLong_internal(data, len, secret, secretSize);
-}
-
-
-XXH_FORCE_INLINE void XXH_writeLE64(void* dst, U64 v64)
-{
-    if (!XXH_CPU_LITTLE_ENDIAN) v64 = XXH_swap64(v64);
-    memcpy(dst, &v64, sizeof(v64));
-}
-
-/* XXH3_initKeySeed() :
- * destination `customSecret` is presumed allocated and same size as `kSecret`.
- */
-XXH_FORCE_INLINE void XXH3_initKeySeed(void* customSecret, U64 seed64)
-{
-          char* const dst = (char*)customSecret;
-    const char* const src = (const char*)kSecret;
-    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
-    int i;
-
-    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
-
-    for (i=0; i < nbRounds; i++) {
-        XXH_writeLE64(dst + 16*i,     XXH_readLE64(src + 16*i)     + seed64);
-        XXH_writeLE64(dst + 16*i + 8, XXH_readLE64(src + 16*i + 8) - seed64);
-    }
-}
-
-
-/* XXH3_hashLong_64b_withSeed() :
- * Generate a custom key,
- * based on alteration of default kSecret with the seed,
- * and then use this key for long mode hashing.
- * This operation is decently fast but nonetheless costs a little bit of time.
- * Try to avoid it whenever possible (typically when seed==0).
- */
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
-{
-    XXH_ALIGN(8) char secret[XXH_SECRET_DEFAULT_SIZE];
-    XXH3_initKeySeed(secret, seed);
-    return XXH3_hashLong_internal(data, len, secret, sizeof(secret));
-}
-
-
 XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict key, U64 seed64)
 {
     const U64* const key64 = (const U64*)key;
@@ -890,13 +836,69 @@ XXH3_len_129to240_64b(const void* restrict data, size_t len, const void* restric
 
 #define XXH3_MIDSIZE_MAX 240
 
+XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable. */
+XXH3_hashLong_64b_defaultSecret(const void* restrict data, size_t len)
+{
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
+    return XXH3_hashLong_internal(data, len, kSecret, sizeof(kSecret));
+}
+
+XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH3_hashLong_64b_withSecret(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
+{
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, secret, secretSize, 0);
+    return XXH3_hashLong_internal(data, len, secret, secretSize);
+}
+
+
+XXH_FORCE_INLINE void XXH_writeLE64(void* dst, U64 v64)
+{
+    if (!XXH_CPU_LITTLE_ENDIAN) v64 = XXH_swap64(v64);
+    memcpy(dst, &v64, sizeof(v64));
+}
+
+/* XXH3_initKeySeed() :
+ * destination `customSecret` is presumed allocated and same size as `kSecret`.
+ */
+XXH_FORCE_INLINE void XXH3_initKeySeed(void* customSecret, U64 seed64)
+{
+          char* const dst = (char*)customSecret;
+    const char* const src = (const char*)kSecret;
+    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
+    int i;
+
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
+
+    for (i=0; i < nbRounds; i++) {
+        XXH_writeLE64(dst + 16*i,     XXH_readLE64(src + 16*i)     + seed64);
+        XXH_writeLE64(dst + 16*i + 8, XXH_readLE64(src + 16*i + 8) - seed64);
+    }
+}
+
+/* XXH3_hashLong_64b_withSeed() :
+ * Generate a custom key,
+ * based on alteration of default kSecret with the seed,
+ * and then use this key for long mode hashing.
+ * This operation is decently fast but nonetheless costs a little bit of time.
+ * Try to avoid it whenever possible (typically when seed==0).
+ */
+XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+{
+    XXH_ALIGN(8) char secret[XXH_SECRET_DEFAULT_SIZE];
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
+    XXH3_initKeySeed(secret, seed);
+    return XXH3_hashLong_internal(data, len, secret, sizeof(secret));
+}
+
+
 /* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, 0);
     if (len <= 128) return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), 0);
-    if (len <= 240) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
+    //if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
     return XXH3_hashLong_64b_defaultSecret(data, len);
 }
 
@@ -910,7 +912,7 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
      * Adding a check and a branch here would cost performance at every hash */
      if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
      if (len <= 128) return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
-     if (len <= 240) return XXH3_len_129to240_64b(data, len, secret, secretSize, 0);
+     //if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, secret, secretSize, 0);
      return XXH3_hashLong_64b_withSecret(data, len, secret, secretSize);
 }
 
@@ -925,9 +927,10 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
      * since that's where it matters */
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, seed);
     if (len <= 128) return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), seed);
-    if (len <= 240) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), seed);
+    //if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), seed);
     return XXH3_hashLong_64b_withSeed(data, len, seed);
 }
+
 
 /* ===   XXH3 streaming   === */
 
