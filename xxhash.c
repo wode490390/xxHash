@@ -693,7 +693,7 @@ static U64 XXH_read64(const void* memPtr)
 #  define XXH_swap64 OSSwapInt64
 #elif defined(WIN32)
 #  include <stdlib.h>
-#  define XXH_swap64 _byteswap_uin64
+#  define XXH_swap64 _byteswap_uint64
 #elif defined(__linux__)
 #  include <byteswap.h>
 #  define XXH_swap64 bswap_64
