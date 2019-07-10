@@ -684,11 +684,20 @@ static U64 XXH_read64(const void* memPtr)
 
 #endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
 
-#if defined(_MSC_VER)     /* Visual Studio */
-#  define XXH_swap64 _byteswap_uint64
-#elif XXH_GCC_VERSION >= 403
-#  define XXH_swap64 __builtin_bswap64
-#else
+
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+#  include <sys/endian.h>
+#  define XXH_swap64 bswap64
+#elif defined(__APPLE__)
+#  include <libkern/OSByteOrder.h>
+#  define XXH_swap64 OSSwapInt64
+#elif defined(WIN32)
+#  include <stdlib.h>
+#  define XXH_swap64 _byteswap_uin64
+#elif defined(__linux__)
+#  include <byteswap.h>
+#  define XXH_swap64 bswap_64
+#else  /* universal scalar variant */
 static U64 XXH_swap64 (U64 x)
 {
     return  ((x << 56) & 0xff00000000000000ULL) |
@@ -701,6 +710,7 @@ static U64 XXH_swap64 (U64 x)
             ((x >> 56) & 0x00000000000000ffULL);
 }
 #endif
+
 
 XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr)
 {
