@@ -432,6 +432,11 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
     }
 }
 
+# if defined(__GNUC__) /* msvc support maybe later */ \
+  && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
+  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
+
+
 XXH_FORCE_INLINE U32
 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 {
@@ -446,6 +451,46 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
     }
 #endif
 
+# if defined(__GNUC__) /* msvc support maybe later */ \
+  && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
+  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
+
+  /* NEON variant of XXH32, suggested by @42Bastian
+   * Measured by @easyaspi314 as 2x faster on ARMv7 */
+
+    if (len>=16) {
+        const BYTE* const limit = bEnd - 16;
+        const uint32_t initial[4] = { PRIME32_1 + PRIME32_2, PRIME32_2, 0, -PRIME32_1 };
+        U32 v1, v2, v3, v4;
+        uint32x4_t const vseed  = vdupq_n_u32 (seed);     /* v(0,1,2,3) = seed */
+        uint32x4_t const prime1 = vdupq_n_u32(PRIME32_1); /* prime1(0,1,2,3) = prime1 */
+        uint32x4_t const prime2 = vdupq_n_u32(PRIME32_2); /* prime2(0,1,2,3) = prime2 */
+        uint32x4_t v = vld1q_u32 (initial);               /* read initial into vector */
+        v += vseed;
+        do {
+            uint32x4_t tmp;
+            uint32x4_t const input = vld1q_u32(p);
+            p += 16;
+            /* round */
+            v = vmlaq_u32 (v, input, prime2);  /* seed += input * PRIME32_2; */
+            tmp = vshrq_n_u32 (v, 19);         /* XXH_rotl32(seed, 13); */
+            v = vsliq_n_u32 (tmp, v, 13);
+            v = vmulq_u32 (v, prime1);         /* seed *= PRIME32_1; */
+        } while (p<=limit);
+
+        v1 = vgetq_lane_u32(v,0);
+        v2 = vgetq_lane_u32(v,1);
+        v3 = vgetq_lane_u32(v,2);
+        v4 = vgetq_lane_u32(v,3);
+
+        h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    } else {
+        h32 = seed + PRIME32_5;
+    }
+
+#else
+
+    /* universal scalar variant */
     if (len>=16) {
         const BYTE* const limit = bEnd - 15;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
@@ -466,10 +511,12 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
         h32  = seed + PRIME32_5;
     }
 
-    h32 += (U32)len;
+#endif
 
+    h32 += (U32)len;
     return XXH32_finalize(h32, p, len&15, align);
 }
+
 
 
 XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int seed)
