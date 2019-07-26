@@ -432,10 +432,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
     }
 }
 
-# if defined(__GNUC__) /* msvc support maybe later */ \
-  && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
-  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
-
 
 XXH_FORCE_INLINE U32
 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
@@ -491,6 +487,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 #else
 
     /* universal scalar variant */
+
     if (len>=16) {
         const BYTE* const limit = bEnd - 15;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
