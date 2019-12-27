@@ -80,7 +80,6 @@ matrix:
         - make clean
 
     - name: PPC64LE compilation and consistency checks
-      dist: xenial
       arch: ppc64le
       script:
         # Scalar (universal) code path
