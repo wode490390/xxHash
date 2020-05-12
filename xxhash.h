@@ -147,8 +147,10 @@ extern "C" {
 #  define XXH128_canonical_t XXH_IPREF(XXH128_canonical_t)
 #  define XXH32_state_s XXH_IPREF(XXH32_state_s)
 #  define XXH32_state_t XXH_IPREF(XXH32_state_t)
+#  define XXH32_stateBody_t XXH_IPREF(XXH32_stateBody_t)
 #  define XXH64_state_s XXH_IPREF(XXH64_state_s)
 #  define XXH64_state_t XXH_IPREF(XXH64_state_t)
+#  define XXH64_stateBody_t XXH_IPREF(XXH64_stateBody_t)
 #  define XXH3_state_s  XXH_IPREF(XXH3_state_s)
 #  define XXH3_state_t  XXH_IPREF(XXH3_state_t)
 #  define XXH128_hash_t XXH_IPREF(XXH128_hash_t)
@@ -293,6 +295,10 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_
  */
 
 typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
+
+typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
+#define XXH32_CREATESTATE_STATIC(name) XXH32_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH32_state_t* name = (XXH32_state_t*)(name##xxhvoid)   /* no final ; */
+
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
 XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state, const XXH32_state_t* src_state);
@@ -358,6 +364,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, XXH64_hash_
 
 /*******   Streaming   *******/
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
+
+typedef struct { long long ll[11]; } XXH64_stateBody_t;
+#define XXH64_CREATESTATE_STATIC(name) XXH64_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH64_state_t* name = (XXH64_state_t*)(name##xxhvoid)   /* no final ; */
+
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_t* src_state);
